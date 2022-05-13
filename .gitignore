@@ -1,0 +1,8 @@
+linux*/
+ubuntu*/
+vmlinu*
+ubuntu-*/
+kbuild/
+.tracercache
+.parsercache
+modules
