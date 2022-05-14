@@ -239,7 +239,7 @@ def find_function_linums(final_map:dict,):
                             function_found = True
     return _tree
 
-def genrate_patch(tree, kp_mod_directory_tree , kp_src_dir_tree):
+def genrate_patch(tree, kp_mod_directory_tree , kp_src_dir_tree , log : progressTracker):
     
     try:os.makedirs('kpatch-diffs/')
     except Exception as err:print(f"Dir already created or {err}")
@@ -258,6 +258,12 @@ def genrate_patch(tree, kp_mod_directory_tree , kp_src_dir_tree):
 
     for config in tree.keys():
         # prog.update()
+
+        # Skip if the patch has already been built.
+        if log.check(config):
+            print(f"Skipping building for {config} as it's already there in log.\n")
+            continue
+
         if prompt:print(f"\nCreate Patch for {config} (y/n):", end='')
         if prompt:choice = input("")
 
@@ -267,7 +273,7 @@ def genrate_patch(tree, kp_mod_directory_tree , kp_src_dir_tree):
                 continue
             else:
                 print(f"Genrating patch for config {config}.")
-        if not prompt:print("Trying to building monolithic patch for config: {config}: " , end='')
+        if not prompt:print(f"\nTrying to building monolithic patch for config: {config}: " , end='')
         # Genrate the diffs for each file under the config.
         for filename in tree[config].keys():
             _actual_filename = filename.replace( '[kernel_tree_root]' , kp_mod_directory_tree.rstrip('/'))
@@ -330,10 +336,10 @@ def genrate_patch(tree, kp_mod_directory_tree , kp_src_dir_tree):
             # input("Go?: ")
             # Try building for each file separately.
             for filename in tree[config].keys():
-                print(f"Trying creating a patch for {filename} under the config {config} : " , end='')
+                print(f"Trying creating a patch for {filename.split('/')[-1]} under the config {config} : " , end='')
                 patch = f"kpatch-diffs/{config}-{filename.split('/')[-1]}.patch"
-                cmx = f'{KPATCH_BINARY_PATH} -t vmlinux -v {VMLINUX_PATH} -R --skip-compiler-check -s {KPATCH_SRC_DIR_TREE} -j {NUMBER_OF_CONCURRENT_MAKE_JOBS} -o kpatch_objects/ -n {config}-split-{filename}.ko {patch}'
-                print(f"CMDLINE: \n\n {cmx} \n")
+                # cmx = f'{KPATCH_BINARY_PATH} -t vmlinux -v {VMLINUX_PATH} -R --skip-compiler-check -s {KPATCH_SRC_DIR_TREE} -j {NUMBER_OF_CONCURRENT_MAKE_JOBS} -o kpatch_objects/ -n {config}-split-{filename}.ko {patch}'
+                # print(f"CMDLINE: \n\n {cmx} \n")
                 ret_code = subprocess.call(
                 [f'{KPATCH_BINARY_PATH} -t vmlinux -v {VMLINUX_PATH} -R --skip-compiler-check -s {KPATCH_SRC_DIR_TREE} -j {NUMBER_OF_CONCURRENT_MAKE_JOBS} -o kpatch_objects/ -n {config}-split-{filename}.ko {patch}'],
                 shell = True,
@@ -343,7 +349,7 @@ def genrate_patch(tree, kp_mod_directory_tree , kp_src_dir_tree):
                 if ret_code:print("Failed")
                 else: print("Success.")
         else:
-            print(f"Sucess!")
+            print(f"Success!")
 
         for file in tree[config].keys():
             _actual_filename = file.replace( '[kernel_tree_root]' , kp_mod_directory_tree.rstrip('/'))
@@ -360,6 +366,8 @@ def genrate_patch(tree, kp_mod_directory_tree , kp_src_dir_tree):
 
             os.remove(f"kpatch-diffs/{config}-{file.split('/')[-1]}.patch")
             # print("Removed the mod and the patch.")
+        
+        log.flush()
 
 
 
@@ -388,5 +396,6 @@ if __name__ == "__main__":
     # _tree = find_function_linums(final_map)
     
     # original_dir_name = "linux-4.9.31"
+    p = progressTracker('prog_1')
     t = json.load(open('tree.json'))
-    genrate_patch( t, KPATCH_SRC_MOD_DIR_TREE, KPATCH_SRC_DIR_TREE)
+    genrate_patch( t, KPATCH_SRC_MOD_DIR_TREE, KPATCH_SRC_DIR_TREE , p)
